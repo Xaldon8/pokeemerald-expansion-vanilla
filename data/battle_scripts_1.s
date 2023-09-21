@@ -438,6 +438,7 @@ gBattleScriptsForMoveEffects::
 	.4byte BattleScript_EffectMortalSpin              @ EFFECT_MORTAL_SPIN
 	.4byte BattleScript_EffectHit                     @ EFFECT_GIGATON_HAMMER
 	.4byte BattleScript_EffectSaltCure                @ EFFECT_SALT_CURE
+	.4byte BattleScript_EffectHit                     @ EFFECT_DRAGON_DARTS
 
 BattleScript_EffectSaltCure:
 	call BattleScript_EffectHit_Ret
