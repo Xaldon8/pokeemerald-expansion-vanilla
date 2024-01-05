@@ -46,6 +46,7 @@ u8 CanUseDigOrEscapeRopeOnCurMap(void);
 u8 CheckIfItemIsTMHMOrEvolutionStone(u16 itemId);
 void FieldUseFunc_VsSeeker(u8 taskId);
 void Task_ItemUse_CloseMessageBoxAndReturnToField_VsSeeker(u8 taskId);
+void DisplayCannotUseItemMessage(u8 taskId, bool8 isUsingRegisteredKeyItemOnField, const u8 *str); //tx_difficultiy_challenges
 
 enum {
     BALL_THROW_UNABLE_TWO_MONS,
@@ -53,6 +54,10 @@ enum {
     BALL_THROW_UNABLE_SEMI_INVULNERABLE,
     BALL_THROW_ABLE,
     BALL_THROW_UNABLE_DISABLED_FLAG,
+    BALL_THROW_NUZLOCKE_ROUTE_BLOCK,
+    BALL_THROW_NUZLOCKE_ALREADY_CAUGHT,
+    BALL_THROW_ONE_TYPE_CHALLENGE_CAPTURE_BLOCKED,
+    BALL_THROW_NUZLOCKE_SPECIES_CLAUSE,
 };
 
 bool32 CanThrowBall(void);

@@ -699,7 +699,13 @@
 #define STRINGID_HOSPITALITYRESTORATION               697
 #define STRINGID_ELECTROSHOCKCHARGING                 698
 
-#define BATTLESTRINGS_COUNT                           699
+//tx_randomizer_and_challenges
+#define STRINGID_ONETYPECAPTUREBLOCKED                699
+#define STRINGID_NUZLOCKECAPTUREBLOCKED               700
+#define STRINGID_SPECIESCLAUSECAPTUREBLOCKED          701
+#define STRINGID_SAMESPECIESCAPTUREBLOCKED            702
+
+#define BATTLESTRINGS_COUNT                           703
 
 // This is the string id that gBattleStringsTable starts with.
 // String ids before this (e.g. STRINGID_INTROMSG) are not in the table,

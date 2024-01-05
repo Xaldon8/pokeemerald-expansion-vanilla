@@ -5,6 +5,7 @@
 #include "constants/items.h"
 #include "constants/region_map_sections.h"
 #include "constants/map_groups.h"
+#include "constants/species.h" //tx_randomizer_and_challenges
 
 #define GET_BASE_SPECIES_ID(speciesId) (GetFormSpeciesId(speciesId, 0))
 #define FORM_SPECIES_END (0xffff)
@@ -112,6 +113,7 @@ enum {
     MON_DATA_DYNAMAX_LEVEL,
     MON_DATA_GIGANTAMAX_FACTOR,
     MON_DATA_TERA_TYPE,
+    MON_DATA_NUZLOCKE_RIBBON,
 };
 
 struct PokemonSubstruct0
@@ -202,7 +204,7 @@ struct PokemonSubstruct3
     u32 earthRibbon:1;    // Given to teams that have beaten Mt. Battle's 100-battle challenge in Colosseum/XD.
     u32 worldRibbon:1;    // Distributed during Pokémon Festa '04 and '05 to tournament winners.
     u32 isShadow:1;
-    u32 unused_0B:1;
+    u32 nuzlockeRibbon:1;
     u32 abilityNum:2;
 
     // The functionality of this bit changed in FRLG:
@@ -575,6 +577,7 @@ extern const struct Fusion *const gFusionTablePointers[NUM_SPECIES];
 
 extern u8 gPlayerPartyCount;
 extern struct Pokemon gPlayerParty[PARTY_SIZE];
+extern struct Pokemon gPlayerPartyBackup[PARTY_SIZE];
 extern u8 gEnemyPartyCount;
 extern struct Pokemon gEnemyParty[PARTY_SIZE];
 extern struct SpriteTemplate gMultiuseSpriteTemplate;
@@ -658,6 +661,7 @@ u32 GetBoxMonData2(struct BoxPokemon *boxMon, s32 field);
 void SetMonData(struct Pokemon *mon, s32 field, const void *dataArg);
 void SetBoxMonData(struct BoxPokemon *boxMon, s32 field, const void *dataArg);
 void CopyMon(void *dest, void *src, size_t size);
+u8 SendMonToPC(struct Pokemon* mon);
 u8 GiveMonToPlayer(struct Pokemon *mon);
 u8 CopyMonToPC(struct Pokemon *mon);
 u8 CalculatePlayerPartyCount(void);
@@ -774,5 +778,16 @@ u16 GetCryIdBySpecies(u16 species);
 u16 GetSpeciesPreEvolution(u16 species);
 void HealPokemon(struct Pokemon *mon);
 void HealBoxPokemon(struct BoxPokemon *boxMon);
+
+//tx_randomizer_and_challenges
+void RandomizeSpeciesListEWRAM(u16 seed);
+void RandomizeTypeEffectivenessListEWRAM(u16 seed);
+u16 PickRandomStarterForOneTypeChallenge(u16 *speciesList, u8 starterId);
+u16 PickRandomStarter(u16 *speciesList, u8 starterId);
+u8 GetTypeBySpecies(u16 species, u8 typeNum);
+u16 GetSpeciesRandomSeeded(u16 species, u8 type, u16 additionalOffset);
+u16 GetRandomMove(u16 input_move, u16 species);
+u8 GetRandomType(void);
+u8 EvolutionBlockedByEvoLimit(u16 species);
 
 #endif // GUARD_POKEMON_H
