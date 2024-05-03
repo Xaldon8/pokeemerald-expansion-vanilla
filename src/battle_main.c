@@ -13,6 +13,8 @@
 #include "battle_setup.h"
 #include "battle_tower.h"
 #include "battle_util.h"
+#include "battle_z_move.h"
+#include "battle_gimmick.h"
 #include "berry.h"
 #include "bg.h"
 #include "data.h"
@@ -3392,9 +3394,6 @@ static void BattleStartClearSetData(void)
     gBattleStruct->arenaLostPlayerMons = 0;
     gBattleStruct->arenaLostOpponentMons = 0;
 
-    gBattleStruct->mega.triggerSpriteId = 0xFF;
-    gBattleStruct->burst.triggerSpriteId = 0xFF;
-
     for (i = 0; i < ARRAY_COUNT(gSideTimers); i++)
     {
         gSideTimers[i].stickyWebBattlerId = 0xFF;
@@ -3539,9 +3538,6 @@ void SwitchInClearSetData(u32 battler)
 
     // Reset G-Max Chi Strike boosts.
     gBattleStruct->bonusCritStages[battler] = 0;
-
-    // Reset Dynamax flags.
-    UndoDynamax(battler);
 
     gBattleStruct->overwrittenAbilities[battler] = ABILITY_NONE;
 
@@ -3709,10 +3705,6 @@ const u8* FaintClearSetData(u32 battler)
         }
     }
 
-    // Clear Z-Move data
-    gBattleStruct->zmove.active = FALSE;
-    gBattleStruct->zmove.toBeUsed[battler] = MOVE_NONE;
-    gBattleStruct->zmove.effect = EFFECT_HIT;
     return result;
 }
 
@@ -4171,6 +4163,7 @@ static void TryDoEventsBeforeFirstTurn(void)
     SpecialStatusesClear();
     *(&gBattleStruct->absentBattlerFlags) = gAbsentBattlerFlags;
     BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
+    AssignUsableGimmicks();
     gBattleMainFunc = HandleTurnActionSelectionState;
     ResetSentPokesToOpponentValue();
 
@@ -4288,6 +4281,7 @@ void BattleTurnPassed(void)
 
     *(&gBattleStruct->absentBattlerFlags) = gAbsentBattlerFlags;
     BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
+    AssignUsableGimmicks();
     SetAiLogicDataForTurn(AI_DATA); // get assumed abilities, hold effects, etc of all battlers
     gBattleMainFunc = HandleTurnActionSelectionState;
 
@@ -4511,7 +4505,6 @@ static void HandleTurnActionSelectionState(void)
                         struct ChooseMoveStruct moveInfo;
 
                         moveInfo.zmove = gBattleStruct->zmove;
-                        moveInfo.mega = gBattleStruct->mega;
                         moveInfo.species = gBattleMons[battler].species;
                         moveInfo.monType1 = gBattleMons[battler].type1;
                         moveInfo.monType2 = gBattleMons[battler].type2;
@@ -4636,12 +4629,7 @@ static void HandleTurnActionSelectionState(void)
                         RecordedBattle_ClearBattlerAction(GetBattlerAtPosition(BATTLE_PARTNER(GetBattlerPosition(battler))), 3);
                     }
 
-                    gBattleStruct->mega.toEvolve &= ~(gBitTable[BATTLE_PARTNER(GetBattlerPosition(battler))]);
-                    gBattleStruct->burst.toBurst &= ~(gBitTable[BATTLE_PARTNER(GetBattlerPosition(battler))]);
-                    gBattleStruct->dynamax.toDynamax &= ~(gBitTable[BATTLE_PARTNER(GetBattlerPosition(battler))]);
-                    gBattleStruct->tera.toTera &= ~(gBitTable[BATTLE_PARTNER(GetBattlerPosition(battler))]);
-                    gBattleStruct->dynamax.usingMaxMove[BATTLE_PARTNER(GetBattlerPosition(battler))] = FALSE;
-                    gBattleStruct->zmove.toBeUsed[BATTLE_PARTNER(GetBattlerPosition(battler))] = MOVE_NONE;
+                    gBattleStruct->gimmick.toActivate &= ~(gBitTable[BATTLE_PARTNER(GetBattlerPosition(battler))]);
                     BtlController_EmitEndBounceEffect(battler, BUFFER_A);
                     MarkBattlerForControllerExec(battler);
                     return;
@@ -4729,25 +4717,18 @@ static void HandleTurnActionSelectionState(void)
                             }
 
                             // Get the chosen move position (and thus the chosen move) and target from the returned buffer.
-                            gBattleStruct->chosenMovePositions[battler] = gBattleResources->bufferB[battler][2] & ~(RET_MEGA_EVOLUTION | RET_ULTRA_BURST | RET_DYNAMAX | RET_TERASTAL);
+                            gBattleStruct->chosenMovePositions[battler] = gBattleResources->bufferB[battler][2] & ~RET_GIMMICK;
                             gChosenMoveByBattler[battler] = gBattleMons[battler].moves[gBattleStruct->chosenMovePositions[battler]];
                             gBattleStruct->moveTarget[battler] = gBattleResources->bufferB[battler][3];
 
                             // Check to see if any gimmicks need to be prepared.
-                            if (gBattleResources->bufferB[battler][2] & RET_MEGA_EVOLUTION)
-                                gBattleStruct->mega.toEvolve |= gBitTable[battler];
-                            else if (gBattleResources->bufferB[battler][2] & RET_ULTRA_BURST)
-                                gBattleStruct->burst.toBurst |= gBitTable[battler];
-                            else if (gBattleResources->bufferB[battler][2] & RET_DYNAMAX)
-                                gBattleStruct->dynamax.toDynamax |= gBitTable[battler];
-                            else if (gBattleResources->bufferB[battler][2] & RET_TERASTAL)
-                                gBattleStruct->tera.toTera |= gBitTable[battler];
+                            if (gBattleResources->bufferB[battler][2] & RET_GIMMICK)
+                                gBattleStruct->gimmick.toActivate |= gBitTable[battler];
 
                             // Max Move check
-                            if (ShouldUseMaxMove(battler, gChosenMoveByBattler[battler]))
+                            if (GetActiveGimmick(battler) == GIMMICK_DYNAMAX || IsGimmickSelected(battler, GIMMICK_DYNAMAX))
                             {
-                                gBattleStruct->dynamax.baseMove[battler] = gBattleMons[battler].moves[gBattleStruct->chosenMovePositions[battler]];
-                                gBattleStruct->dynamax.usingMaxMove[battler] = TRUE;
+                                gBattleStruct->dynamax.baseMoves[battler] = gBattleMons[battler].moves[gBattleStruct->chosenMovePositions[battler]];
                             }
                             gBattleCommunication[battler]++;
 
@@ -5023,7 +5004,7 @@ u32 GetBattlerTotalSpeedStatArgs(u32 battler, u32 ability, u32 holdEffect)
         speed /= 2;
     else if (holdEffect == HOLD_EFFECT_IRON_BALL)
         speed /= 2;
-    else if (holdEffect == HOLD_EFFECT_CHOICE_SCARF && !IsDynamaxed(battler))
+    else if (holdEffect == HOLD_EFFECT_CHOICE_SCARF && GetActiveGimmick(battler) != GIMMICK_DYNAMAX)
         speed = (speed * 150) / 100;
     else if (holdEffect == HOLD_EFFECT_QUICK_POWDER && gBattleMons[battler].species == SPECIES_DITTO && !(gBattleMons[battler].status2 & STATUS2_TRANSFORMED))
         speed *= 2;
@@ -5069,13 +5050,13 @@ s8 GetMovePriority(u32 battler, u16 move)
     s8 priority;
     u16 ability = GetBattlerAbility(battler);
 
-    if (gBattleStruct->zmove.toBeUsed[battler] && gMovesInfo[move].power != 0)
-        move = gBattleStruct->zmove.toBeUsed[battler];
+    if (GetActiveGimmick(battler) == GIMMICK_Z_MOVE && gMovesInfo[move].power != 0)
+        move = GetUsableZMove(battler, move);
 
     priority = gMovesInfo[move].priority;
 
     // Max Guard check
-    if (gBattleStruct->dynamax.usingMaxMove[battler] && gMovesInfo[move].category == DAMAGE_CATEGORY_STATUS)
+    if (GetActiveGimmick(battler) == GIMMICK_DYNAMAX && gMovesInfo[move].category == DAMAGE_CATEGORY_STATUS)
         return gMovesInfo[MOVE_MAX_GUARD].priority;
 
     if (ability == ABILITY_GALE_WINGS
@@ -5358,9 +5339,7 @@ static void PopulateArrayWithBattlers(u8 *battlers)
 
 static bool32 TryDoGimmicksBeforeMoves(void)
 {
-    if (!(gHitMarker & HITMARKER_RUN)
-        && (gBattleStruct->mega.toEvolve || gBattleStruct->burst.toBurst
-            || gBattleStruct->dynamax.toDynamax || gBattleStruct->tera.toTera))
+    if (!(gHitMarker & HITMARKER_RUN) && gBattleStruct->gimmick.toActivate)
     {
         u32 i, battler;
         u8 order[MAX_BATTLERS_COUNT];
@@ -5369,49 +5348,16 @@ static bool32 TryDoGimmicksBeforeMoves(void)
         SortBattlersBySpeed(order, FALSE);
         for (i = 0; i < gBattlersCount; i++)
         {
-            // Tera Check
-            if (gBattleStruct->tera.toTera & gBitTable[order[i]])
+            // Search through each battler and activate their gimmick if they have one prepared.
+            if ((gBattleStruct->gimmick.toActivate & gBitTable[order[i]]) && !(gProtectStructs[order[i]].noValidMoves))
             {
-                gBattlerAttacker = order[i];
-                gBattleScripting.battler = gBattlerAttacker;
-                gBattleStruct->tera.toTera &= ~(gBitTable[gBattlerAttacker]);
-                PrepareBattlerForTera(gBattlerAttacker);
-                PREPARE_TYPE_BUFFER(gBattleTextBuff1, GetBattlerTeraType(gBattlerAttacker));
-                BattleScriptExecute(BattleScript_Terastallization);
-                return TRUE;
-            }
-            // Dynamax Check
-            if (gBattleStruct->dynamax.toDynamax & gBitTable[order[i]])
-            {
-                gBattlerAttacker = order[i];
-                gBattleScripting.battler = gBattlerAttacker;
-                gBattleStruct->dynamax.toDynamax &= ~(gBitTable[gBattlerAttacker]);
-                PrepareBattlerForDynamax(gBattlerAttacker);
-                BattleScriptExecute(BattleScript_DynamaxBegins);
-                return TRUE;
-            }
-            // Mega Evo Check
-            if (gBattleStruct->mega.toEvolve & gBitTable[order[i]]
-                && !(gProtectStructs[order[i]].noValidMoves))
-            {
-                gBattlerAttacker = order[i];
-                gBattleStruct->mega.toEvolve &= ~(gBitTable[gBattlerAttacker]);
-                gLastUsedItem = gBattleMons[gBattlerAttacker].item;
-                if (GetBattleFormChangeTargetSpecies(gBattlerAttacker, FORM_CHANGE_BATTLE_MEGA_EVOLUTION_MOVE) != SPECIES_NONE)
-                    BattleScriptExecute(BattleScript_WishMegaEvolution);
-                else
-                    BattleScriptExecute(BattleScript_MegaEvolution);
-                return TRUE;
-            }
-            // Ultra Burst Check
-            if (gBattleStruct->burst.toBurst & gBitTable[order[i]]
-                && !(gProtectStructs[order[i]].noValidMoves))
-            {
-                battler = gBattlerAttacker = order[i];
-                gBattleStruct->burst.toBurst &= ~(gBitTable[battler]);
-                gLastUsedItem = gBattleMons[battler].item;
-                BattleScriptExecute(BattleScript_UltraBurst);
-                return TRUE;
+                battler = gBattlerAttacker = gBattleScripting.battler = order[i];
+                gBattleStruct->gimmick.toActivate &= ~(gBitTable[battler]);
+                if (gGimmicksInfo[gBattleStruct->gimmick.usableGimmick[battler]].ActivateGimmick != NULL)
+                {
+                    gGimmicksInfo[gBattleStruct->gimmick.usableGimmick[battler]].ActivateGimmick(battler);
+                    return TRUE;
+                }
             }
         }
     }
@@ -5798,10 +5744,10 @@ static void HandleEndTurn_FinishBattle(void)
             TryRestoreHeldItems();
 
         // Undo Dynamax HP multiplier before recalculating stats.
-        for (i = 0; i < gBattlersCount; ++i)
+        for (battler = 0; battler < gBattlersCount; ++battler)
         {
-            if (IsDynamaxed(i))
-                UndoDynamax(i);
+            if (GetActiveGimmick(battler) == GIMMICK_DYNAMAX)
+                UndoDynamax(battler);
         }
 
         for (i = 0; i < PARTY_SIZE; i++)
@@ -6042,7 +5988,7 @@ void SetTypeBeforeUsingMove(u32 move, u32 battlerAtk)
     }
     else if (gMovesInfo[move].effect == EFFECT_REVELATION_DANCE)
     {
-        if (IsTerastallized(battlerAtk) && GetBattlerTeraType(battlerAtk) != TYPE_STELLAR)
+        if (GetActiveGimmick(battlerAtk) == GIMMICK_TERA && GetBattlerTeraType(battlerAtk) != TYPE_STELLAR)
             gBattleStruct->dynamicMoveType = GetBattlerTeraType(battlerAtk);
         else if (gBattleMons[battlerAtk].type1 != TYPE_MYSTERY)
             gBattleStruct->dynamicMoveType = gBattleMons[battlerAtk].type1 | F_DYNAMIC_TYPE_SET;
@@ -6086,7 +6032,7 @@ void SetTypeBeforeUsingMove(u32 move, u32 battlerAtk)
                 gBattleStruct->dynamicMoveType = TYPE_NORMAL | F_DYNAMIC_TYPE_SET;
         }
     }
-    else if (gMovesInfo[move].effect == EFFECT_TERA_BLAST && IsTerastallized(battlerAtk))
+    else if (gMovesInfo[move].effect == EFFECT_TERA_BLAST && GetActiveGimmick(battlerAtk) == GIMMICK_TERA)
     {
         gBattleStruct->dynamicMoveType = GetBattlerTeraType(battlerAtk) | F_DYNAMIC_TYPE_SET;
     }
@@ -6102,8 +6048,9 @@ void SetTypeBeforeUsingMove(u32 move, u32 battlerAtk)
              && gMovesInfo[move].effect != EFFECT_WEATHER_BALL
              && gMovesInfo[move].effect != EFFECT_CHANGE_TYPE_ON_ITEM
              && gMovesInfo[move].effect != EFFECT_NATURAL_GIFT
-             && !(gMovesInfo[move].effect == EFFECT_TERA_BLAST && IsTerastallized(battlerAtk))
+             && !(gMovesInfo[move].effect == EFFECT_TERA_BLAST && GetActiveGimmick(battlerAtk) == GIMMICK_TERA)
              && !(gMovesInfo[move].effect == EFFECT_TERA_STARSTORM && gBattleMons[battlerAtk].species == SPECIES_TERAPAGOS_STELLAR)
+             && GetActiveGimmick(battlerAtk) != GIMMICK_Z_MOVE
              && ((attackerAbility == ABILITY_PIXILATE && (ateType = TYPE_FAIRY))
                  || (attackerAbility == ABILITY_REFRIGERATE && (ateType = TYPE_ICE))
                  || (attackerAbility == ABILITY_AERILATE && (ateType = TYPE_FLYING))
@@ -6112,7 +6059,7 @@ void SetTypeBeforeUsingMove(u32 move, u32 battlerAtk)
              )
     {
         gBattleStruct->dynamicMoveType = ateType | F_DYNAMIC_TYPE_SET;
-        if (!IsDynamaxed(battlerAtk))
+        if (GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX)
             gBattleStruct->ateBoost[battlerAtk] = 1;
     }
     else if (gMovesInfo[move].type != TYPE_NORMAL
@@ -6121,7 +6068,7 @@ void SetTypeBeforeUsingMove(u32 move, u32 battlerAtk)
              && attackerAbility == ABILITY_NORMALIZE)
     {
         gBattleStruct->dynamicMoveType = TYPE_NORMAL | F_DYNAMIC_TYPE_SET;
-        if (!IsDynamaxed(battlerAtk))
+        if (GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX)
             gBattleStruct->ateBoost[battlerAtk] = 1;
     }
     else if (gMovesInfo[move].soundMove && attackerAbility == ABILITY_LIQUID_VOICE)
