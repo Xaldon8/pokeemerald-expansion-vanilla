@@ -1388,6 +1388,13 @@
 	.4byte \jumpInstr
 	.endm
 
+	.macro jumpifstatus4 battler:req, flags:req, jumpInstr:req
+	callnative BS_JumpIfStatus4
+	.byte \battler
+	.4byte \flags
+	.4byte \jumpInstr
+	.endm
+
 	.macro itemrestorehp jumpInstr:req
 	callnative BS_ItemRestoreHP
 	.4byte \jumpInstr
@@ -1640,6 +1647,10 @@
 
 	.macro removeweather
 	callnative BS_RemoveWeather
+	.endm
+
+	.macro itemincreasecrit
+	callnative BS_ItemIncreaseCrit
 	.endm
 
 @ various command changed to more readable macros

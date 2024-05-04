@@ -350,7 +350,9 @@ extern const u8 BattleScript_GemActivates[];
 extern const u8 BattleScript_BerryReduceDmg[];
 extern const u8 BattleScript_PrintBerryReduceString[];
 extern const u8 BattleScript_WeaknessPolicy[];
+extern const u8 BattleScript_WeaknessPolicyEnd2[];
 extern const u8 BattleScript_TargetItemStatRaise[];
+extern const u8 BattleScript_TargetItemStatRaiseEnd2[];
 extern const u8 BattleScript_RockyHelmetActivates[];
 extern const u8 BattleScript_ItemHurtEnd2[];
 extern const u8 BattleScript_AirBaloonMsgIn[];
@@ -405,6 +407,7 @@ extern const u8 BattleScript_BattlerGotOverItsInfatuation[];
 extern const u8 BattleScript_Pickpocket[];
 extern const u8 BattleScript_StickyBarbTransfer[];
 extern const u8 BattleScript_AttackerItemStatRaise[];
+extern const u8 BattleScript_AttackerItemStatRaiseEnd2[];
 extern const u8 BattleScript_RedCardActivates[];
 extern const u8 BattleScript_EjectButtonActivates[];
 extern const u8 BattleScript_EjectPackActivate_Ret[];
@@ -837,5 +840,9 @@ extern const u8 BattleScript_EffectFilletAway[];
 extern const u8 BattleScript_EffectShedTail[];
 extern const u8 BattleScript_EffectUpperHand[];
 extern const u8 BattleScript_EffectTidyUp[];
+
+// Wonder Launcher Items
+extern const u8 BattleScript_ItemDrop[];
+extern const u8 BattleScript_ResetStats[];
 
 #endif // GUARD_BATTLE_SCRIPTS_H
