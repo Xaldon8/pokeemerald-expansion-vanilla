@@ -549,6 +549,30 @@ void HandleAction_Run(void)
         gBattleOutcome |= B_OUTCOME_LINK_BATTLE_RAN;
         gSaveBlock2Ptr->frontier.disableRecordBattle = TRUE;
     }
+    else if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+    {
+        if (gBattleMons[gBattlerAttacker].isReverse)
+        {
+            gBattleMons[gBattlerAttacker].isReverse = FALSE;
+            gBattlescriptCurrInstr = BattleScript_TrainerCallToMonReverse;
+            gCurrentActionFuncId = B_ACTION_EXEC_SCRIPT;
+        }
+        else
+        {
+            if (gBattleMons[gBattlerAttacker].statStages[STAT_ACC] < MAX_STAT_STAGE)
+            {
+                if (B_X_ITEMS_BUFF >= GEN_7)
+                    gBattleMons[gBattlerAttacker].statStages[STAT_ACC] += 2;
+                else
+                    gBattleMons[gBattlerAttacker].statStages[STAT_ACC] += 1;
+                if (gBattleMons[gBattlerAttacker].statStages[STAT_ACC] > MAX_STAT_STAGE)
+                    gBattleMons[gBattlerAttacker].statStages[STAT_ACC] = MAX_STAT_STAGE;
+            }
+
+            gBattlescriptCurrInstr = BattleScript_TrainerCallToMonNormal;
+            gCurrentActionFuncId = B_ACTION_EXEC_SCRIPT;
+        }
+    }
     else
     {
         if (GetBattlerSide(gBattlerAttacker) == B_SIDE_PLAYER)
@@ -915,27 +939,28 @@ static const uq4_12_t sPercentToModifier[] =
 
 static const uq4_12_t sTypeEffectivenessTable[NUMBER_OF_MON_TYPES][NUMBER_OF_MON_TYPES] =
 {//                   Defender -->
- //  Attacker         Normal  Fighting Flying  Poison  Ground   Rock    Bug     Ghost   Steel  Mystery  Fire   Water   Grass  Electric Psychic   Ice   Dragon   Dark   Fairy   Stellar
-    [TYPE_NORMAL]   = {______, ______, ______, ______, ______, X(0.5), ______, X(0.0), X(0.5), ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______},
-    [TYPE_FIGHTING] = {X(2.0), ______, X(0.5), X(0.5), ______, X(2.0), X(0.5), X(0.0), X(2.0), ______, ______, ______, ______, ______, X(0.5), X(2.0), ______, X(2.0), X(0.5), ______},
-    [TYPE_FLYING]   = {______, X(2.0), ______, ______, ______, X(0.5), X(2.0), ______, X(0.5), ______, ______, ______, X(2.0), X(0.5), ______, ______, ______, ______, ______, ______},
-    [TYPE_POISON]   = {______, ______, ______, X(0.5), X(0.5), X(0.5), BUG_RS, X(0.5), X(0.0), ______, ______, ______, X(2.0), ______, ______, ______, ______, ______, X(2.0), ______},
-    [TYPE_GROUND]   = {______, ______, X(0.0), X(2.0), ______, X(2.0), X(0.5), ______, X(2.0), ______, X(2.0), ______, X(0.5), X(2.0), ______, ______, ______, ______, ______, ______},
-    [TYPE_ROCK]     = {______, X(0.5), X(2.0), ______, X(0.5), ______, X(2.0), ______, X(0.5), ______, X(2.0), ______, ______, ______, ______, X(2.0), ______, ______, ______, ______},
-    [TYPE_BUG]      = {______, X(0.5), X(0.5), PSN_RS, ______, ______, ______, X(0.5), X(0.5), ______, X(0.5), ______, X(2.0), ______, X(2.0), ______, ______, X(2.0), X(0.5), ______},
-    [TYPE_GHOST]    = {X(0.0), ______, ______, ______, ______, ______, ______, X(2.0), STL_RS, ______, ______, ______, ______, ______, PSY_RS, ______, ______, X(0.5), ______, ______},
-    [TYPE_STEEL]    = {______, ______, ______, ______, ______, X(2.0), ______, ______, X(0.5), ______, X(0.5), X(0.5), ______, X(0.5), ______, X(2.0), ______, ______, X(2.0), ______},
-    [TYPE_MYSTERY]  = {______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______},
-    [TYPE_FIRE]     = {______, ______, ______, ______, ______, X(0.5), X(2.0), ______, X(2.0), ______, X(0.5), X(0.5), X(2.0), ______, ______, X(2.0), X(0.5), ______, ______, ______},
-    [TYPE_WATER]    = {______, ______, ______, ______, X(2.0), X(2.0), ______, ______, ______, ______, X(2.0), X(0.5), X(0.5), ______, ______, ______, X(0.5), ______, ______, ______},
-    [TYPE_GRASS]    = {______, ______, X(0.5), X(0.5), X(2.0), X(2.0), X(0.5), ______, X(0.5), ______, X(0.5), X(2.0), X(0.5), ______, ______, ______, X(0.5), ______, ______, ______},
-    [TYPE_ELECTRIC] = {______, ______, X(2.0), ______, X(0.0), ______, ______, ______, ______, ______, ______, X(2.0), X(0.5), X(0.5), ______, ______, X(0.5), ______, ______, ______},
-    [TYPE_PSYCHIC]  = {______, X(2.0), ______, X(2.0), ______, ______, ______, ______, X(0.5), ______, ______, ______, ______, ______, X(0.5), ______, ______, X(0.0), ______, ______},
-    [TYPE_ICE]      = {______, ______, X(2.0), ______, X(2.0), ______, ______, ______, X(0.5), ______, FIR_RS, X(0.5), X(2.0), ______, ______, X(0.5), X(2.0), ______, ______, ______},
-    [TYPE_DRAGON]   = {______, ______, ______, ______, ______, ______, ______, ______, X(0.5), ______, ______, ______, ______, ______, ______, ______, X(2.0), ______, X(0.0), ______},
-    [TYPE_DARK]     = {______, X(0.5), ______, ______, ______, ______, ______, X(2.0), STL_RS, ______, ______, ______, ______, ______, X(2.0), ______, ______, X(0.5), X(0.5), ______},
-    [TYPE_FAIRY]    = {______, X(2.0), ______, X(0.5), ______, ______, ______, ______, X(0.5), ______, X(0.5), ______, ______, ______, ______, ______, X(2.0), X(2.0), ______, ______},
-    [TYPE_STELLAR]  = {______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______},
+ //  Attacker         Normal  Fighting Flying  Poison  Ground   Rock    Bug     Ghost   Steel  Mystery  Fire   Water   Grass  Electric Psychic   Ice   Dragon   Dark   Fairy   Stellar Shadow
+    [TYPE_NORMAL]   = {______, ______, ______, ______, ______, X(0.5), ______, X(0.0), X(0.5), ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______},
+    [TYPE_FIGHTING] = {X(2.0), ______, X(0.5), X(0.5), ______, X(2.0), X(0.5), X(0.0), X(2.0), ______, ______, ______, ______, ______, X(0.5), X(2.0), ______, X(2.0), X(0.5), ______, ______},
+    [TYPE_FLYING]   = {______, X(2.0), ______, ______, ______, X(0.5), X(2.0), ______, X(0.5), ______, ______, ______, X(2.0), X(0.5), ______, ______, ______, ______, ______, ______, ______},
+    [TYPE_POISON]   = {______, ______, ______, X(0.5), X(0.5), X(0.5), BUG_RS, X(0.5), X(0.0), ______, ______, ______, X(2.0), ______, ______, ______, ______, ______, X(2.0), ______, ______},
+    [TYPE_GROUND]   = {______, ______, X(0.0), X(2.0), ______, X(2.0), X(0.5), ______, X(2.0), ______, X(2.0), ______, X(0.5), X(2.0), ______, ______, ______, ______, ______, ______, ______},
+    [TYPE_ROCK]     = {______, X(0.5), X(2.0), ______, X(0.5), ______, X(2.0), ______, X(0.5), ______, X(2.0), ______, ______, ______, ______, X(2.0), ______, ______, ______, ______, ______},
+    [TYPE_BUG]      = {______, X(0.5), X(0.5), PSN_RS, ______, ______, ______, X(0.5), X(0.5), ______, X(0.5), ______, X(2.0), ______, X(2.0), ______, ______, X(2.0), X(0.5), ______, ______},
+    [TYPE_GHOST]    = {X(0.0), ______, ______, ______, ______, ______, ______, X(2.0), STL_RS, ______, ______, ______, ______, ______, PSY_RS, ______, ______, X(0.5), ______, ______, ______},
+    [TYPE_STEEL]    = {______, ______, ______, ______, ______, X(2.0), ______, ______, X(0.5), ______, X(0.5), X(0.5), ______, X(0.5), ______, X(2.0), ______, ______, X(2.0), ______, ______},
+    [TYPE_MYSTERY]  = {______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______},
+    [TYPE_FIRE]     = {______, ______, ______, ______, ______, X(0.5), X(2.0), ______, X(2.0), ______, X(0.5), X(0.5), X(2.0), ______, ______, X(2.0), X(0.5), ______, ______, ______, ______},
+    [TYPE_WATER]    = {______, ______, ______, ______, X(2.0), X(2.0), ______, ______, ______, ______, X(2.0), X(0.5), X(0.5), ______, ______, ______, X(0.5), ______, ______, ______, ______},
+    [TYPE_GRASS]    = {______, ______, X(0.5), X(0.5), X(2.0), X(2.0), X(0.5), ______, X(0.5), ______, X(0.5), X(2.0), X(0.5), ______, ______, ______, X(0.5), ______, ______, ______, ______},
+    [TYPE_ELECTRIC] = {______, ______, X(2.0), ______, X(0.0), ______, ______, ______, ______, ______, ______, X(2.0), X(0.5), X(0.5), ______, ______, X(0.5), ______, ______, ______, ______},
+    [TYPE_PSYCHIC]  = {______, X(2.0), ______, X(2.0), ______, ______, ______, ______, X(0.5), ______, ______, ______, ______, ______, X(0.5), ______, ______, X(0.0), ______, ______, ______},
+    [TYPE_ICE]      = {______, ______, X(2.0), ______, X(2.0), ______, ______, ______, X(0.5), ______, FIR_RS, X(0.5), X(2.0), ______, ______, X(0.5), X(2.0), ______, ______, ______, ______},
+    [TYPE_DRAGON]   = {______, ______, ______, ______, ______, ______, ______, ______, X(0.5), ______, ______, ______, ______, ______, ______, ______, X(2.0), ______, X(0.0), ______, ______},
+    [TYPE_DARK]     = {______, X(0.5), ______, ______, ______, ______, ______, X(2.0), STL_RS, ______, ______, ______, ______, ______, X(2.0), ______, ______, X(0.5), X(0.5), ______, ______},
+    [TYPE_FAIRY]    = {______, X(2.0), ______, X(0.5), ______, ______, ______, ______, X(0.5), ______, X(0.5), ______, ______, ______, ______, ______, X(2.0), X(2.0), ______, ______, ______},
+    [TYPE_STELLAR]  = {______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______, ______},
+    [TYPE_SHADOW]   = {X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), X(2.0), ______, X(0.5)},
 };
 
 #undef ______
@@ -1704,6 +1729,7 @@ enum
     ENDTURN_RAINBOW,
     ENDTURN_SEA_OF_FIRE,
     ENDTURN_SWAMP,
+    ENDTURN_SHADOW_SKY,
     ENDTURN_FIELD_COUNT,
 };
 
@@ -2320,6 +2346,25 @@ u8 DoFieldEndTurnEffects(void)
                 gBattleStruct->turnSideTracker = 0;
             }
             break;
+        case ENDTURN_SHADOW_SKY:
+            if (gBattleWeather & B_WEATHER_SHADOW_SKY)
+            {
+                if (!(gBattleWeather & B_WEATHER_SHADOW_SKY_PERMANENT)
+                 && --gWishFutureKnock.weatherDuration == 0)
+                {
+                    gBattleWeather &= ~B_WEATHER_SHADOW_SKY_TEMPORARY;
+                    gBattlescriptCurrInstr = BattleScript_ShadowSkyEnd;
+                }
+                else
+                {
+                    gBattlescriptCurrInstr = BattleScript_ShadowSkyContinues;
+                }
+
+                BattleScriptExecute(gBattlescriptCurrInstr);
+                effect++;
+            }
+            gBattleStruct->turnCountersTracker++;
+            break;
         case ENDTURN_FIELD_COUNT:
             effect++;
             break;
@@ -2371,6 +2416,7 @@ enum
     ENDTURN_SYRUP_BOMB,
     ENDTURN_DYNAMAX,
     ENDTURN_SEA_OF_FIRE_DAMAGE,
+    ENDTURN_REVERSE_MODE,
     ENDTURN_BATTLER_COUNT
 };
 
@@ -2964,6 +3010,19 @@ u8 DoBattlerEndTurnEffects(void)
                 BtlController_EmitStatusAnimation(battler, BUFFER_A, FALSE, STATUS1_BURN);
                 MarkBattlerForControllerExec(battler);
                 BattleScriptExecute(BattleScript_HurtByTheSeaOfFire);
+                effect++;
+            }
+            gBattleStruct->turnEffectsTracker++;
+            break;
+        case ENDTURN_REVERSE_MODE:
+            MAGIC_GUARD_CHECK;
+            if (gBattleMons[battler].isReverse && IsBattlerAlive(battler))
+            {
+                gBattleMoveDamage = (gBattleMons[battler].maxHP / 16) + (Random() % 3) - 1;
+                if (gBattleMoveDamage == 0)
+                    gBattleMoveDamage = 1;
+                BattleScriptExecute(BattleScript_ReverseModeTurnDmg);
+    		    LaunchStatusAnimation(battler, B_ANIM_STATUS_REVERSE_MODE);
                 effect++;
             }
             gBattleStruct->turnEffectsTracker++;
@@ -3832,7 +3891,7 @@ bool32 HasNoMonsToSwitch(u32 battler, u8 partyIdBattlerOn1, u8 partyIdBattlerOn2
     }
 }
 
-static const u16 sWeatherFlagsInfo[][3] =
+static const u32 sWeatherFlagsInfo[][3] =
 {
     [ENUM_WEATHER_RAIN] = {B_WEATHER_RAIN_TEMPORARY, B_WEATHER_RAIN_PERMANENT, HOLD_EFFECT_DAMP_ROCK},
     [ENUM_WEATHER_RAIN_PRIMAL] = {B_WEATHER_RAIN_PRIMAL, B_WEATHER_RAIN_PRIMAL, HOLD_EFFECT_DAMP_ROCK},
@@ -3843,6 +3902,7 @@ static const u16 sWeatherFlagsInfo[][3] =
     [ENUM_WEATHER_STRONG_WINDS] = {B_WEATHER_STRONG_WINDS, B_WEATHER_STRONG_WINDS, HOLD_EFFECT_NONE},
     [ENUM_WEATHER_SNOW] = {B_WEATHER_SNOW_TEMPORARY, B_WEATHER_SNOW_PERMANENT, HOLD_EFFECT_ICY_ROCK},
     [ENUM_WEATHER_FOG] = {B_WEATHER_FOG_TEMPORARY, B_WEATHER_FOG_PERMANENT, HOLD_EFFECT_NONE},
+    [ENUM_WEATHER_SHADOW_SKY] = {B_WEATHER_SHADOW_SKY_TEMPORARY, B_WEATHER_SHADOW_SKY_PERMANENT, HOLD_EFFECT_NONE},
 };
 
 static void ShouldChangeFormInWeather(u32 battler)
@@ -8157,7 +8217,7 @@ u8 IsMonDisobedient(void)
         if (FlagGet(FLAG_BADGE08_GET)) // Rain Badge, ignore obedience altogether
             return 0;
 
-        obedienceLevel = 10;
+    obedienceLevel = 10;
 
         if (FlagGet(FLAG_BADGE01_GET)) // Stone Badge
             obedienceLevel = 20;
@@ -9669,6 +9729,8 @@ static uq4_12_t GetWeatherDamageModifier(u32 battlerAtk, u32 move, u32 moveType,
 {
     if (weather == B_WEATHER_NONE)
         return UQ_4_12(1.0);
+    if ((weather & B_WEATHER_SHADOW_SKY) && moveType == TYPE_SHADOW)
+        return UQ_4_12(1.5);
     if (gMovesInfo[move].effect == EFFECT_HYDRO_STEAM && (weather & B_WEATHER_SUN) && holdEffectAtk != HOLD_EFFECT_UTILITY_UMBRELLA)
         return UQ_4_12(1.5);
     if (holdEffectDef == HOLD_EFFECT_UTILITY_UMBRELLA)
@@ -9686,6 +9748,7 @@ static uq4_12_t GetWeatherDamageModifier(u32 battlerAtk, u32 move, u32 moveType,
             return UQ_4_12(1.0);
         return (moveType == TYPE_WATER) ? UQ_4_12(0.5) : UQ_4_12(1.5);
     }
+
     return UQ_4_12(1.0);
 }
 
@@ -10233,6 +10296,15 @@ static inline uq4_12_t CalcTypeEffectivenessMultiplierInternal(u32 move, u32 mov
             RecordAbilityBattle(battlerDef, gBattleMons[battlerDef].ability);
         }
     }
+
+    // Shadow Move conditional type effectiveness
+    if (gMovesInfo[move].type == TYPE_SHADOW)
+    {
+        if (gBattleMons[battlerDef].isShadow)
+            modifier = UQ_4_12(0.5);
+        else
+            modifier = UQ_4_12(2.0);
+	}
 
     // Signal for the trainer slide-in system.
     if (GetBattlerSide(battlerDef) != B_SIDE_PLAYER && modifier && gBattleStruct->trainerSlideFirstSTABMoveMsgState != 2)
